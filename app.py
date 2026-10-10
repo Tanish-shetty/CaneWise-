@@ -1,4 +1,4 @@
-import json
+from html import escape
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -6,14 +6,10 @@ from config.settings import DATA, MODEL, SOILS, STAGES, FEATURES
 from database.db import initialize, plots, history, save
 from models.predictor import Predictor
 from services.advisory_engine import advise, duration_hours
+from ui import design as ui
 
 st.set_page_config(page_title="CaneWise | Irrigation advisory", page_icon="\U0001f331", layout="wide")
-st.markdown("""<style>
-.stApp {background:#f5f8f4} h1,h2,h3 {color:#184c36}
-[data-testid="stSidebar"] {background:#e6efe6}
-[data-testid="stMetric"] {background:white;border:1px solid #d9e6dc;border-radius:12px;padding:16px}
-.stButton>button {background:#205d41;color:white;border-radius:8px}
-</style>""", unsafe_allow_html=True)
+ui.css()
 if not MODEL.exists() or not (DATA / 'synthetic_agriculture.csv').exists():
     st.error('Project assets missing. Run python -m scripts.setup before launching.')
     st.stop()
@@ -29,54 +25,75 @@ try:
 except (FileNotFoundError, ValueError, KeyError) as exc:
     st.error(str(exc)); st.stop()
 farm = plots()
-st.sidebar.title('\U0001f331 CaneWise')
-st.sidebar.caption('SMART SUGARCANE IRRIGATION')
-page = st.sidebar.radio('Navigation', ['Farmer Dashboard', 'Irrigation Advisory', 'Analytics & History', 'Farm & Plots', 'Cloud Experiments'])
+ui.brand()
+page = st.sidebar.radio('Navigation', ['Farmer Dashboard', 'Irrigation Advisory', 'Analytics & History', 'Farm & Plots', 'Cloud Experiments'], label_visibility='collapsed')
 farmer = st.sidebar.selectbox('Farmer', farm.farmer_name.unique())
 options = farm[farm.farmer_name == farmer]
 plot = st.sidebar.selectbox('Plot', options.plot_id)
 selected = options[options.plot_id == plot].iloc[0]
-st.sidebar.caption(f"{selected.area_hectares} ha | {selected.soil_type} | {selected.irrigation_method}")
-st.sidebar.info('Academic prototype | Synthetic data. Predictions and thresholds are not field validated.')
-st.title(page)
-st.caption('Smart Sugarcane Irrigation Advisory System Using AI and Cloud Computing')
+st.sidebar.markdown(f'<div class="cw-context"><strong>{escape(plot)} &middot; {selected.area_hectares} hectares</strong><p>{escape(selected.soil_type)} soil &middot; {escape(selected.irrigation_method)} irrigation</p></div>', unsafe_allow_html=True)
+st.sidebar.caption('SYNTHETIC DATA / ACADEMIC PROTOTYPE')
+st.sidebar.caption('Predictions and illustrative thresholds are not field validated.')
+subtitles = {'Farmer Dashboard': 'A clearer view of your crop, water and field conditions.', 'Irrigation Advisory': 'Turn field measurements into an explainable irrigation plan.', 'Analytics & History': 'Explore field patterns and the decisions behind them.', 'Farm & Plots': 'Your farmers, fields and cultivation details in one place.', 'Cloud Experiments': 'Explore deployment, performance and resource decisions.'}
+ui.header('Farm overview' if page == 'Farmer Dashboard' else page, subtitles[page])
 observations = dataset().query('plot_id == @plot').copy()
 latest = observations.iloc[-1].to_dict()
 values = {f: latest[f] for f in FEATURES}
 
-def result_card(result):
-    status = result['status']
-    if status == 'Irrigation Required': st.error(status)
-    elif status == 'Irrigation Recommended Soon': st.warning(status)
-    elif 'Deferred' in status: st.info(status)
-    else: st.success(status)
-    st.write(result['explanation'])
-    a,b,c = st.columns(3)
-    a.metric('Predicted next-day moisture', f"{result['predicted_moisture']:.1f}%")
-    b.metric('Illustrative threshold', f"{result['threshold']}%")
-    c.metric('Next irrigation / reassessment', result['next_irrigation_date'] or 'Reassess tomorrow')
-    st.caption(result['date_method'])
-    for level, message in result['alerts']: getattr(st, level)(message)
+def result_card(result, show_alerts=True):
+    ui.advice_card(result)
+    with st.expander('How this advisory is estimated'):
+        st.caption(result['date_method'])
+        st.caption('This prototype uses a synthetic-data model and illustrative thresholds.')
+    if show_alerts:
+        for level, message in result['alerts']: getattr(st, level)(message)
 
 if page == 'Farmer Dashboard':
-    st.subheader(f'{farmer} | {plot}')
-    st.caption(f"{selected.variety} | {latest['crop_growth_stage']} | planted {selected.planting_date}")
-    st.info(f"Latest synthetic scenario: {latest['timestamp'][:10]}. Values are demonstration scenarios, not live sensor readings.")
-    cols = st.columns(4)
-    for col, name, value in zip(cols, ['Soil moisture','Temperature','Humidity','Expected rainfall'],
-        [f"{latest['soil_moisture_percent']:.1f}%", f"{latest['temperature_celsius']:.1f} C", f"{latest['humidity_percent']:.1f}%", f"{latest['forecast_rainfall_mm']:.1f} mm"]): col.metric(name,value)
-    result_card(advise(values, model.predict(values)))
-    a,b = st.columns(2)
-    a.plotly_chart(px.line(observations, x='timestamp', y='soil_moisture_percent', title='Synthetic moisture scenarios', color_discrete_sequence=['#287b55']), width='stretch')
-    b.plotly_chart(px.bar(observations.tail(20), x='timestamp', y=['rainfall_mm','forecast_rainfall_mm'], title='Rainfall scenarios (mm)'), width='stretch')
-    records = history(plot)
+    ui.hero(farmer,plot,selected.variety,latest['crop_growth_stage'],latest['timestamp'][:10])
+    specs=[('Soil moisture',f"{latest['soil_moisture_percent']:.1f}",'%', 'Current synthetic measurement','water','blue'),
+           ('Temperature',f"{latest['temperature_celsius']:.1f}",'C','Ambient field temperature','temperature','amber'),
+           ('Humidity',f"{latest['humidity_percent']:.1f}",'%', 'Relative air humidity','leaf','green'),
+           ('Expected rainfall',f"{latest['forecast_rainfall_mm']:.1f}",'mm', 'Entered forecast scenario','rain','blue')]
+    for col,spec in zip(st.columns(4,gap='medium'),specs):
+        with col: ui.metric(*spec)
+    left,right=st.columns([2.1,1],gap='large')
+    result=advise(values,model.predict(values))
+    with left:
+        ui.section('Your irrigation outlook','Prediction + explainable rules')
+        result_card(result,show_alerts=False)
+    with right:
+        ui.section('Field signals','Prototype alerts')
+        if result['alerts']:
+            for level,message in result['alerts']: getattr(st,level)(message)
+        else: st.success('No alerts triggered by this scenario.')
+        ui.details([('Variety',selected.variety),('Growth stage',latest['crop_growth_stage']),('Soil',selected.soil_type),('Area',f'{selected.area_hectares} ha')])
+    ui.section('Field conditions','Independent synthetic scenarios')
+    a,b=st.columns([1.35,1],gap='medium')
+    with a:
+        chart=px.area(observations,x='timestamp',y='soil_moisture_percent',title='Soil moisture',color_discrete_sequence=['#448466'])
+        chart.update_traces(line_width=2,fillcolor='rgba(68,132,102,.09)')
+        chart.add_hline(y=result['threshold'],line_dash='dot',line_color='#d8ae60',annotation_text='Illustrative threshold',annotation_position='bottom right')
+        chart.update_yaxes(title_text='Moisture (%)',range=[0,100])
+        ui.plot(chart)
+    with b:
+        chart=px.bar(observations.tail(20),x='timestamp',y=['rainfall_mm','forecast_rainfall_mm'],title='Rainfall outlook',barmode='group',color_discrete_sequence=['#6ea5b5','#c1d8e0'],labels={'value':'Rainfall (mm)'})
+        chart.for_each_trace(lambda trace:trace.update(name={'rainfall_mm':'Scenario rainfall','forecast_rainfall_mm':'Forecast rainfall'}.get(trace.name,trace.name)))
+        ui.plot(chart)
+    records=history(plot)
     if not records.empty:
-        st.plotly_chart(px.scatter(records, x='created_at', y='predicted_moisture', color='status', title='Saved advisory history'), width='stretch')
+        ui.section('Recent advisories',f'{len(records)} saved records for {plot}')
+        st.dataframe(records[['created_at','status','predicted_moisture','next_irrigation_date','source']].tail(5).iloc[::-1].rename(columns={'created_at':'Saved at','status':'Recommendation','predicted_moisture':'Predicted moisture (%)','next_irrigation_date':'Irrigation / reassessment','source':'Data source'}),hide_index=True,width='stretch')
+        ui.plot(px.scatter(records,x='created_at',y='predicted_moisture',color='status',title='Advisory history',color_discrete_sequence=ui.COLORS),300)
 
 elif page == 'Irrigation Advisory':
-    st.write('Enter measurements for the selected plot. Recommendations use a synthetic-data model and illustrative rules.')
+    ui.section('Build your irrigation plan',f'{plot} / {selected.soil_type} soil')
+    st.caption('Enter your measurements below. Predictions use a synthetic-data model.')
     with st.form('advisory'):
-        a,b = st.columns(2)
+        a,b = st.columns(2,gap='large')
+        a.subheader('Field measurements')
+        a.caption('Moisture, temperature and air conditions')
+        b.subheader('Crop & rainfall')
+        b.caption('Forecast and cultivation context')
         entered = dict(soil_moisture_percent=a.slider('Soil moisture (%)',0.,100.,35.),
             temperature_celsius=a.number_input('Temperature (Celsius)',5.,50.,30.),
             humidity_percent=a.slider('Humidity (%)',0.,100.,65.),
@@ -84,7 +101,7 @@ elif page == 'Irrigation Advisory':
             soil_type=b.selectbox('Soil type',SOILS,index=SOILS.index(selected.soil_type)),
             crop_growth_stage=b.selectbox('Growth stage',STAGES,index=2),
             days_since_last_irrigation=b.number_input('Days since irrigation',0,60,5))
-        submit = st.form_submit_button('Generate Advisory')
+        submit = st.form_submit_button('Generate Advisory',type='primary',width='stretch')
     if submit:
         try:
             result = advise(entered, model.predict(entered))
@@ -96,7 +113,7 @@ elif page == 'Irrigation Advisory':
         result_card(result)
         st.caption(f'Saved advisory #{record_id}')
     with st.expander('Optional irrigation duration calculator'):
-        st.caption('User-supplied assumptions: volume = hectares | depth (mm) | 10 / efficiency; hours = volume / flow. No agronomic depth recommendation is implied.')
+        st.caption('User-supplied assumptions: volume = hectares * depth (mm) * 10 / efficiency; hours = volume / flow. No agronomic depth recommendation is implied.')
         area=st.number_input('Area (ha)',.01,1000.,float(selected.area_hectares))
         depth=st.number_input('Assumed application depth (mm)',.1,200.,10.)
         flow=st.number_input('Measured flow (m3/hour)',.1,10000.,30.)
@@ -112,9 +129,16 @@ elif page == 'Analytics & History':
         filtered=observations[(dates>=chosen[0])&(dates<=chosen[1])]
     if filtered.empty: st.info('No scenarios in this range.')
     else:
-        st.dataframe(filtered[['soil_moisture_percent','temperature_celsius','humidity_percent','rainfall_mm']].describe(), width='stretch')
-        for field,label in [('soil_moisture_percent','Moisture (%)'),('temperature_celsius','Temperature (Celsius)'),('humidity_percent','Humidity (%)'),('rainfall_mm','Rainfall (mm)')]:
-            st.plotly_chart(px.line(filtered,x='timestamp',y=field,title=label),width='stretch')
+        summary=st.columns(4)
+        for col,field,label,unit in zip(summary,['soil_moisture_percent','temperature_celsius','humidity_percent','rainfall_mm'],['Average moisture','Average temperature','Average humidity','Total scenario rainfall'],['%','C','%','mm']):
+            value=filtered[field].sum() if field=='rainfall_mm' else filtered[field].mean()
+            col.metric(label,f'{value:.1f} {unit}')
+        with st.expander('Detailed summary statistics'):
+            st.dataframe(filtered[['soil_moisture_percent','temperature_celsius','humidity_percent','rainfall_mm']].describe(),width='stretch')
+        chart_columns=st.columns(2,gap='medium')
+        for index,(field,label) in enumerate([('soil_moisture_percent','Moisture (%)'),('temperature_celsius','Temperature (Celsius)'),('humidity_percent','Humidity (%)'),('rainfall_mm','Rainfall (mm)')]):
+            with chart_columns[index%2]:
+                ui.plot(px.line(filtered,x='timestamp',y=field,title=label,color_discrete_sequence=[ui.COLORS[index]]),280)
     st.subheader('Saved advisory records')
     records=history(plot)
     if not records.empty:
@@ -132,24 +156,33 @@ elif page == 'Analytics & History':
     test=pd.read_csv(DATA/'held_out_predictions.csv')
     chart=px.scatter(test,x='actual',y='predicted',color='plot_id',title='Actual synthetic target vs predicted moisture (%)')
     chart.add_shape(type='line',x0=0,y0=0,x1=100,y1=100,line=dict(dash='dash',color='gray'))
-    st.plotly_chart(chart,width='stretch')
+    ui.plot(chart,400)
     importance=pd.read_csv(DATA/'feature_importance.csv').sort_values('importance')
-    st.plotly_chart(px.bar(importance,x='importance',y='feature',orientation='h',title='Encoded feature importance'),width='stretch')
+    ui.plot(px.bar(importance,x='importance',y='feature',orientation='h',title='What influences the prediction?',color_discrete_sequence=['#65946b']),420)
 
 elif page == 'Farm & Plots':
     st.info('Fictional demo farmers and plots. Growth stage is a scenario attribute, not inferred from planting date.')
-    st.dataframe(farm,width='stretch')
+    farm_metrics=st.columns(3)
+    farm_metrics[0].metric('Demo farmers',farm.farmer_id.nunique())
+    farm_metrics[1].metric('Registered plots',len(farm))
+    farm_metrics[2].metric('Total area',f'{farm.area_hectares.sum():.1f} ha')
+    ui.section('Farm directory','Fictional demonstration records')
+    st.dataframe(farm,hide_index=True,width='stretch')
     st.download_button('Export farm records',farm.to_csv(index=False),'sample_farmers.csv','text/csv')
 
 else:
-    st.subheader('Four experiments, one application')
+    ui.section('Four experiments, one application','Procedures & actual measurements')
+    for col,number,title in zip(st.columns(4),['02','06','07','08'],['Containerization','Cloud simulation','Resource sizing','FinOps']):
+        with col: ui.metric(title,number,'','Connected to the irrigation application')
     for title,filename in [('2 | Docker containerization','experiment_2.md'),('6 | CloudAnalyst workload simulation','experiment_6.md'),('7 | Resource right-sizing','experiment_7.md'),('8 | FinOps cost comparison','experiment_8.md')]:
         with st.expander(title): st.markdown((DATA.parent/'docs'/filename).read_text(encoding='utf-8'))
     results=DATA.parent/'cloud'/'results'/'comparison.csv'
     if results.exists():
         measured=pd.read_csv(results)
         st.dataframe(measured,width='stretch')
-        st.plotly_chart(px.bar(measured,x='configuration',y='p95_latency_ms',title='Measured core advisory latency (not browser latency)'),width='stretch')
+        ui.plot(px.bar(measured,x='configuration',y='p95_latency_ms',title='Measured core advisory latency (ms)',color='configuration',color_discrete_sequence=ui.COLORS))
     else: st.info('Docker resource comparisons have not been executed yet.')
     costs=DATA.parent/'cloud'/'results'/'finops.csv'
     if costs.exists(): st.dataframe(pd.read_csv(costs),width='stretch')
+
+ui.footer()

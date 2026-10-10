@@ -23,6 +23,7 @@ scripts/                    Setup and standalone dataset generation
 cloud/                      Benchmark, Docker right-sizing, FinOps
   cloudanalyst/             Reproducible hypothetical scenario table
   results/                  Actual generated measurements and charts
+ui/                         Reusable visual components and chart styling
 tests/                      Unit and Streamlit integration tests
 docs/                       Architecture, implementation, reports and demo
 Dockerfile, .dockerignore   Non-root container with health check
