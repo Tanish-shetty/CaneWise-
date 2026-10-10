@@ -1,0 +1,4 @@
+scenario,registered_farmers,peak_active_users,offpeak_active_users,requests_per_user_hour,payload_bytes,vm_count,vm_ram_mb,vm_mips,vm_bandwidth_mbps,vm_cpus
+Small,100,10,2,12,2048,1,1024,1000,100,1
+Medium,1000,100,20,12,2048,2,1024,1000,100,1
+Larger,5000,500,100,12,2048,4,1024,1000,100,1

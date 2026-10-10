@@ -1,0 +1,80 @@
+﻿[
+    {
+        "Id": "sha256:47a6cd59ed729f50366d89e6a944d244bf932f17ac899a186465b759a8e69522",
+        "RepoTags": [
+            "sugarcane-irrigation:latest"
+        ],
+        "RepoDigests": [
+            "sugarcane-irrigation@sha256:47a6cd59ed729f50366d89e6a944d244bf932f17ac899a186465b759a8e69522"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-10-10T09:01:44.489247357Z",
+        "Config": {
+            "User": "appuser",
+            "ExposedPorts": {
+                "8501/tcp": {}
+            },
+            "Env": [
+                "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=C.UTF-8",
+                "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+                "PYTHON_VERSION=3.11.17",
+                "PYTHON_SHA256=bfb74ad39efae27cda510f134ab408e00f9992c56851cfc0b1cdb5646da11599",
+                "PYTHONUNBUFFERED=1",
+                "PYTHONDONTWRITEBYTECODE=1",
+                "CANEWISE_DB=/app/data/canewise.sqlite"
+            ],
+            "Cmd": [
+                "streamlit",
+                "run",
+                "app.py",
+                "--server.address=0.0.0.0",
+                "--server.port=8501"
+            ],
+            "WorkingDir": "/app",
+            "ArgsEscaped": true,
+            "Healthcheck": {
+                "Test": [
+                    "CMD-SHELL",
+                    "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health',timeout=4)\""
+                ],
+                "Interval": 30000000000,
+                "Timeout": 5000000000,
+                "StartPeriod": 30000000000
+            }
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 265218231,
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:15f1c8eb1ab18eae260c7fb6296434cbe1ff0e1e30fd814ae92a80dd54005e62",
+                "sha256:56864e09c37360dbf846cf5ac9fc3090034f02e382fd0fbe4c7b576207436200",
+                "sha256:ba18d048b43a42f86dc288babadbdfe01602571200fd60c9e172deb8abf4147f",
+                "sha256:020f37c339b9fc549a11bcc5a937b81e3500281270bb62edde29022b27919d86",
+                "sha256:51b030399193cc63bf692ea2e91221943de11f80437cbb626a1c9774d44119cc",
+                "sha256:36464f9ba596acd85358dbb2783eaad965f32b28181fb4b7b850a5ddc0b968ac",
+                "sha256:cb76f5e656e9b7789c83dc00f90c1b4cab590561006f78b811c77da2f0dab589",
+                "sha256:db92d47c4081530274fab9ebf4f2889b58b35d52451183980962dd34c668e5a8",
+                "sha256:7b6a1b7153e515ae711d490b2558f071290db73bf6b75a9d3c02cbd4db41092e"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-10-10T09:01:48.644984341Z"
+        },
+        "Descriptor": {
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "digest": "sha256:47a6cd59ed729f50366d89e6a944d244bf932f17ac899a186465b759a8e69522",
+            "size": 856
+        },
+        "Identity": {
+            "Build": [
+                {
+                    "Ref": "hwo9ygixtcrhqv6ukhdv63oa9",
+                    "CreatedAt": "2026-10-10T09:01:50.216119983Z"
+                }
+            ]
+        }
+    }
+]

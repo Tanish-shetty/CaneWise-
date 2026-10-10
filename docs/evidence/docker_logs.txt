@@ -1,0 +1,18 @@
+﻿
+Collecting usage statistics. To deactivate, set browser.gatherUsageStats to false.
+
+docker : 2026-10-10 08:48:56.708 Uvicorn server started on 0.0.0.0:8501
+At line:2 char:1
++ docker logs canewise-demo 2>&1 | Out-File -FilePath docs\evidence\doc ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026-10-10 08:4...on 0.0.0.0:8501:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://172.17.0.2:8501
+  External URL: http://223.181.60.182:8501
+
+  Detected WSL. Using poll-based file watching for better compatibility. To force watchdog, set server.fileWatcherType = "watchdog".

@@ -1,0 +1,5 @@
+Final Windows command: python -m pytest -q --tb=short -p no:cacheprovider
+24 passed in 39.55s
+Final Docker command: docker run --rm --name canewise-verify sugarcane-irrigation python -m pytest -q --tb=short -p no:cacheprovider
+24 passed in 33.70s
+Final packaged image: dashboard and measured-results view AppTest smoke checks passed. Both local and Docker /_stcore/health endpoints returned ok.

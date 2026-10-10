@@ -1,0 +1,4 @@
+configuration,hourly_price_usd,source,price_date,currency
+A,0.025,Hypothetical classroom assumption - not a provider quotation,2026-10-10,USD
+B,0.050,Hypothetical classroom assumption - not a provider quotation,2026-10-10,USD
+C,0.100,Hypothetical classroom assumption - not a provider quotation,2026-10-10,USD
